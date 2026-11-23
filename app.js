@@ -54,6 +54,10 @@ function initSurvey(){
    document.getElementById('nextStep').classList.toggle('hidden',current===steps.length-1);
    finalRow.classList.toggle('hidden',current!==steps.length-1);
    document.getElementById('nextStep').textContent=current===0?'Bắt đầu →':'Tiếp theo →';
+   const activePanel=steps[current];
+   const hasMultiChoice=!!activePanel.querySelector('input[type="checkbox"]');
+   document.getElementById('nextStep').classList.toggle('hidden',!hasMultiChoice&&current>0&&current<steps.length-1);
+   if(hasMultiChoice)document.getElementById('nextStep').classList.remove('hidden');
    const active=steps[current].querySelector('input:not([type=hidden]),textarea');
    if(active)active.focus({preventScroll:true});
    window.scrollTo({top:0,behavior:'smooth'});
@@ -79,12 +83,24 @@ function initSurvey(){
    document.getElementById('formMessage').textContent='';
    return true;
  }
+ function advanceIfComplete(){
+   const panel=steps[current];
+   if(current===0||current===steps.length-1||panel.querySelector('input[type="checkbox"]'))return;
+   const radioNames=[...new Set([...panel.querySelectorAll('input[type="radio"]')].map(x=>x.name))];
+   if(!radioNames.length)return;
+   const allAnswered=radioNames.every(name=>panel.querySelector('input[name="'+CSS.escape(name)+'"]:checked'));
+   if(allAnswered&&validateStep()){
+     window.setTimeout(()=>{if(current<steps.length-1){current++;updateProgress();}},280);
+   }
+ }
  document.getElementById('nextStep').addEventListener('click',()=>{if(!validateStep())return;current=Math.min(current+1,steps.length-1);updateProgress();});
  document.getElementById('prevStep').addEventListener('click',()=>{current=Math.max(0,current-1);document.getElementById('formMessage').textContent='';updateProgress();});
  form.addEventListener('change',e=>{
    if(e.target.name==='identity')document.getElementById('nameWrap').classList.toggle('hidden',e.target.value!=='Ghi tên');
    const groups=['firstImpression','attractions','cities'];
    groups.forEach(g=>{const selected=[...form.querySelectorAll('input[name="'+g+'"]:checked')];const max=g==='cities'?2:3;form.querySelectorAll('input[name="'+g+'"]').forEach(el=>{el.disabled=selected.length>=max&&!el.checked;});});
+   if(e.target.type==='radio')advanceIfComplete();
+   if(e.target.name&&e.target.name.startsWith('likert'))advanceIfComplete();
  });
  form.addEventListener('reset',()=>setTimeout(()=>{
    form.querySelectorAll('input').forEach(x=>x.disabled=false);
@@ -112,7 +128,7 @@ function initSurvey(){
 function initAdmin(){
  const login=document.getElementById("loginForm");if(!login)return;
  const loginPanel=document.getElementById("loginPanel"),dash=document.getElementById("dashboard");
- if(!db){document.getElementById("loginMessage").textContent="Cần cấu hình Supabase trong app.js trước khi sử dụng trang quản lý.";return;}
+ if(!db){document.getElementById("loginMessage").textContent="Chưa kết nối Supabase. Email và mật khẩu không thể xác thực cho đến khi cấu hình SUPABASE_URL và SUPABASE_ANON_KEY trong app.js.";return;}
  login.addEventListener("submit",async e=>{e.preventDefault();const f=new FormData(login);const {error}=await db.auth.signInWithPassword({email:f.get("email"),password:f.get("password")});document.getElementById("loginMessage").textContent=error?error.message:"";if(!error)showDashboard();});
  document.getElementById("logoutBtn").onclick=async()=>{await db.auth.signOut();dash.classList.add("hidden");loginPanel.classList.remove("hidden");};
  document.getElementById("refreshBtn").onclick=loadData;
