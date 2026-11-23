@@ -32,3 +32,19 @@ Dashboard hiển thị số lượng phản hồi, tỷ lệ đã từng đến 
 
 ## Lưu ý
 GitHub Pages chỉ lưu và phân phối giao diện tĩnh; dữ liệu phản hồi được lưu trong Supabase để các thiết bị khác nhau cùng xem một nguồn dữ liệu. Cần hoàn tất cấu hình Supabase trước khi thu thập dữ liệu thật.
+
+
+## 5. Chế độ song ngữ Việt – Hàn
+- Hai trang có nút chuyển đổi **Tiếng Việt / 한국어** ở phần đầu trang.
+- Các nhãn giao diện và nội dung câu hỏi được dịch sang tiếng Hàn khi chọn 한국어.
+- Giá trị lưu trong database vẫn dùng mã/nhãn tiếng Việt thống nhất để tránh tách dữ liệu thành hai nhóm khi phân tích.
+- Nội dung câu trả lời tự do của người tham gia được giữ nguyên ngôn ngữ họ nhập.
+
+## 6. Quyền quản trị
+- Người tham gia không cần tài khoản và chỉ có quyền INSERT.
+- Chỉ email quản trị đã khai báo trong policy RLS được SELECT dữ liệu.
+- Tạo một tài khoản trong Supabase Authentication → Users, sau đó thay email mẫu trong `supabase/schema.sql` bằng email đó.
+- Không bật đăng ký công khai cho tài khoản quản trị. Không bao giờ đặt service_role key trong frontend.
+
+## 7. Triển khai sau khi cập nhật
+Sau mỗi lần sửa mã, GitHub Pages tự triển khai lại từ branch `main` nếu đã bật Pages. Kiểm tra trang khảo sát tại `https://phuchau01-ui.github.io/hau/` và trang quản trị tại `https://phuchau01-ui.github.io/hau/admin.html`.
