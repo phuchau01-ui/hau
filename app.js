@@ -136,7 +136,11 @@ function initSurvey(){
   const {error}=await db.from('survey_responses').insert(data);
   btn.disabled=false;btn.textContent='Gửi khảo sát →';
   if(error){msg.textContent='Không thể gửi phản hồi: '+error.message;return;}
-  form.reset();msg.textContent='Cảm ơn bạn! Câu trả lời đã được ghi nhận.';
+  form.classList.add('hidden');
+  document.querySelector('.intro')?.classList.add('hidden');
+  const success=document.getElementById('surveySuccess');
+  success.classList.remove('hidden');
+  success.scrollIntoView({behavior:'smooth',block:'start'});
  });
  updateProgress();
 }
@@ -165,3 +169,19 @@ function renderDashboard(rows){
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 document.addEventListener("DOMContentLoaded",()=>{initSurvey();initAdmin();});
+function initSurveyShare(){
+ const url=window.location.href.split('#')[0];
+ const title='베트남 설문조사';
+ const text='설문에 참여해 주세요. 여러분의 의견은 베트남에 대한 인식 연구에 도움이 됩니다.';
+ const share=document.getElementById('nativeShare');
+ if(share)share.addEventListener('click',async()=>{
+   if(navigator.share){try{await navigator.share({title,text,url});}catch(e){}}
+   else{try{await navigator.clipboard.writeText(url);share.textContent='링크가 복사되었습니다';}catch(e){window.prompt('설문 링크를 복사하세요',url);}}
+ });
+ const kakao=document.getElementById('kakaoShare');
+ if(kakao)kakao.href='https://sharer.kakao.com/talk/friends/picker/link?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text);
+ const facebook=document.getElementById('facebookShare');
+ if(facebook)facebook.href='https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(url);
+ const messenger=document.getElementById('messengerShare');
+ if(messenger)messenger.href='fb-messenger://share/?link='+encodeURIComponent(url);
+}
