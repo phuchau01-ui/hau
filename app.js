@@ -56,8 +56,10 @@ function initSurvey(){
    document.getElementById('nextStep').textContent=current===0?'Bắt đầu →':'Tiếp theo →';
    const activePanel=steps[current];
    const hasMultiChoice=!!activePanel.querySelector('input[type="checkbox"]');
-   document.getElementById('nextStep').classList.toggle('hidden',!hasMultiChoice&&current>0&&current<steps.length-1);
-   if(hasMultiChoice)document.getElementById('nextStep').classList.remove('hidden');
+   const hasTextAnswer=!!activePanel.querySelector('textarea, input[type="text"]');
+   document.getElementById('nextStep').classList.toggle('hidden',!hasMultiChoice&&!hasTextAnswer&&current>0&&current<steps.length-1);
+   if(hasMultiChoice||hasTextAnswer)document.getElementById('nextStep').classList.remove('hidden');
+   document.getElementById('nextStep').textContent=hasTextAnswer?'Tiếp theo →':(current===0?'Bắt đầu →':'Tiếp theo →');
    const active=steps[current].querySelector('input:not([type=hidden]),textarea');
    if(active)active.focus({preventScroll:true});
    window.scrollTo({top:0,behavior:'smooth'});
@@ -95,6 +97,19 @@ function initSurvey(){
  }
  document.getElementById('nextStep').addEventListener('click',()=>{if(!validateStep())return;current=Math.min(current+1,steps.length-1);updateProgress();});
  document.getElementById('prevStep').addEventListener('click',()=>{current=Math.max(0,current-1);document.getElementById('formMessage').textContent='';updateProgress();});
+ // Text-entry questions (e.g. questions 10–11): advance after the respondent finishes typing and leaves the field.
+ form.addEventListener('focusout',e=>{
+   if(!(e.target.matches('textarea, input[type="text"]')))return;
+   const value=e.target.value.trim();
+   if(!value||current===0||current>=steps.length-1)return;
+   const panel=steps[current];
+   if(!panel.contains(e.target))return;
+   window.setTimeout(()=>{
+     if(!panel.contains(document.activeElement)&&current<steps.length-1&&e.target.value.trim()===value){
+       current++;updateProgress();
+     }
+   },350);
+ });
  form.addEventListener('change',e=>{
    if(e.target.name==='identity')document.getElementById('nameWrap').classList.toggle('hidden',e.target.value!=='Ghi tên');
    const groups=['firstImpression','attractions','cities'];
