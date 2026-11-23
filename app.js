@@ -15,27 +15,99 @@ function initSurvey(){
  const form=document.getElementById("surveyForm"); if(!form)return;
  const likert=document.getElementById("likert");
  likert.innerHTML='<div class="likert-row"><strong>Nhận định</strong>'+[1,2,3,4,5].map(n=>'<span class="likert-head">'+n+'</span>').join('')+'</div>'+likertQuestions.map((q,i)=>'<div class="likert-row"><span>'+String.fromCharCode(97+i)+') '+q+'</span>'+[1,2,3,4,5].map(n=>'<label><input type="radio" name="likert'+i+'" value="'+n+'" required aria-label="Điểm '+n+'"></label>').join('')+'</div>').join('');
- form.addEventListener("change",e=>{
-  if(e.target.name==="identity") document.getElementById("nameWrap").classList.toggle("hidden",e.target.value!=="Ghi tên");
-  const checks=[...form.querySelectorAll('input[type=checkbox]:checked')]; const groups=["firstImpression","attractions","cities"];
-  groups.forEach(g=>{const selected=[...form.querySelectorAll('input[name="'+g+'"]:checked')];selected.forEach(el=>{el.disabled=selected.length>= (g==="cities"?2:3) && !el.checked});});
-  const required=form.querySelectorAll("[required]");const done=[...required].filter(el=>el.type==="radio"?form.querySelector('input[name="'+el.name+'"]:checked'):el.checked).length;document.getElementById("progressFill").style.width=Math.round(done/required.length*100)+"%";document.getElementById("progressText").textContent="Tiến độ: "+Math.round(done/required.length*100)+"%";
+ const sourcePanels=[...form.querySelectorAll(':scope > .panel')];
+ const identityPanel=sourcePanels[0];
+ const questions=sourcePanels.slice(1).flatMap(p=>[...p.querySelectorAll('.question')]);
+ const steps=[];
+ identityPanel.classList.add('wizard-step');
+ identityPanel.dataset.step='0';
+ steps.push(identityPanel);
+ const sectionNames=['PHẦN A · THÔNG TIN CƠ BẢN VÀ NHẬN THỨC','PHẦN B · HÌNH ẢNH VÀ SỨC HẤP DẪN CỦA VIỆT NAM','PHẦN C · NGUỒN THÔNG TIN VÀ DỰ ĐỊNH TƯƠNG LAI'];
+ questions.forEach((q,i)=>{
+   const originalPanel=q.closest('.panel');
+   const section=originalPanel.querySelector('.section-tag')?.textContent||'';
+   const panel=document.createElement('section');panel.className='panel wizard-step';panel.dataset.step=String(i+1);
+   const tag=document.createElement('div');tag.className='section-tag';tag.textContent=section;panel.append(tag,q);
+   steps.push(panel);
  });
- form.addEventListener("reset",()=>setTimeout(()=>{form.querySelectorAll("input").forEach(x=>x.disabled=false);document.getElementById("nameWrap").classList.add("hidden");document.getElementById("progressFill").style.width="0%";document.getElementById("progressText").textContent="Tiến độ: 0%";},0));
- form.addEventListener("submit",async e=>{
-  e.preventDefault();const msg=document.getElementById("formMessage");msg.textContent="";
-  const get=n=>form.querySelector('[name="'+n+'"]:checked')?.value||"";
+ sourcePanels.forEach(p=>p.remove());
+ const nav=document.createElement('div');nav.className='wizard-nav';
+ nav.innerHTML='<button class="btn secondary" type="button" id="prevStep">← Quay lại</button><span id="stepCounter" aria-live="polite"></span><button class="btn primary" type="button" id="nextStep">Tiếp theo →</button>';
+ const submitRow=form.querySelector('.submit-row');
+ const resetButton=submitRow?.querySelector('[type=reset]');
+ const submitButton=submitRow?.querySelector('[type=submit]');
+ if(submitRow)submitRow.remove();
+ steps.forEach(p=>form.appendChild(p));
+ form.appendChild(nav);
+ const finalRow=document.createElement('div');finalRow.className='submit-row wizard-final hidden';
+ if(resetButton)finalRow.appendChild(resetButton);
+ if(submitButton)finalRow.appendChild(submitButton);
+ form.appendChild(finalRow);
+ let current=0;
+ function updateProgress(){
+   const pct=Math.round((current/steps.length)*100);
+   document.getElementById('progressFill').style.width=pct+'%';
+   document.getElementById('progressText').textContent='Tiến độ: '+pct+'%';
+   document.getElementById('stepCounter').textContent='Câu '+(current+1)+' / '+steps.length;
+   steps.forEach((p,i)=>p.classList.toggle('hidden',i!==current));
+   document.getElementById('prevStep').disabled=current===0;
+   document.getElementById('nextStep').classList.toggle('hidden',current===steps.length-1);
+   finalRow.classList.toggle('hidden',current!==steps.length-1);
+   document.getElementById('nextStep').textContent=current===0?'Bắt đầu →':'Tiếp theo →';
+   const active=steps[current].querySelector('input:not([type=hidden]),textarea');
+   if(active)active.focus({preventScroll:true});
+   window.scrollTo({top:0,behavior:'smooth'});
+ }
+ function validateStep(){
+   const panel=steps[current];
+   const required=[...panel.querySelectorAll('[required]')];
+   for(const el of required){
+     if(el.type==='radio'){
+       if(!panel.querySelector('input[name="'+CSS.escape(el.name)+'"]:checked')){el.focus();el.reportValidity?.();return false;}
+     }else if(!el.checkValidity()){el.reportValidity();return false;}
+   }
+   const limits=[['firstImpression',3],['attractions',3],['cities',2]];
+   for(const [name,max] of limits){
+     const group=[...panel.querySelectorAll('input[name="'+name+'"]:checked')];
+     if(panel.querySelector('input[name="'+name+'"]')&&group.length===0){
+       const first=panel.querySelector('input[name="'+name+'"]');
+       const message=name==='cities'?'Vui lòng chọn ít nhất một thành phố.':'Vui lòng chọn ít nhất một đáp án.';
+       document.getElementById('formMessage').textContent=message;first.focus();return false;
+     }
+     if(group.length>max){document.getElementById('formMessage').textContent='Vui lòng chọn tối đa '+max+' đáp án.';return false;}
+   }
+   document.getElementById('formMessage').textContent='';
+   return true;
+ }
+ document.getElementById('nextStep').addEventListener('click',()=>{if(!validateStep())return;current=Math.min(current+1,steps.length-1);updateProgress();});
+ document.getElementById('prevStep').addEventListener('click',()=>{current=Math.max(0,current-1);document.getElementById('formMessage').textContent='';updateProgress();});
+ form.addEventListener('change',e=>{
+   if(e.target.name==='identity')document.getElementById('nameWrap').classList.toggle('hidden',e.target.value!=='Ghi tên');
+   const groups=['firstImpression','attractions','cities'];
+   groups.forEach(g=>{const selected=[...form.querySelectorAll('input[name="'+g+'"]:checked')];const max=g==='cities'?2:3;form.querySelectorAll('input[name="'+g+'"]').forEach(el=>{el.disabled=selected.length>=max&&!el.checked;});});
+ });
+ form.addEventListener('reset',()=>setTimeout(()=>{
+   form.querySelectorAll('input').forEach(x=>x.disabled=false);
+   document.getElementById('nameWrap').classList.add('hidden');
+   current=0;document.getElementById('formMessage').textContent='';updateProgress();
+ },0));
+ form.addEventListener('submit',async e=>{
+  e.preventDefault();const msg=document.getElementById('formMessage');msg.textContent='';
+  if(current!==steps.length-1){msg.textContent='Vui lòng hoàn thành từng câu hỏi trước khi gửi.';return;}
+  if(!validateStep())return;
+  const get=n=>form.querySelector('[name="'+n+'"]:checked')?.value||'';
   const many=n=>[...form.querySelectorAll('[name="'+n+'"]:checked')].map(x=>x.value);
-  const limited=[["firstImpression",3],["attractions",3],["cities",2]];
-  if(limited.some(([n,max])=>many(n).length>max)){msg.textContent="Vui lòng kiểm tra giới hạn số lựa chọn.";return;}
-  if(!db){msg.textContent="Chưa kết nối cơ sở dữ liệu. Vui lòng cấu hình Supabase theo hướng dẫn trong README.md.";return;}
-  const data={identity:get("identity"),respondent_name:form.name.value.trim()||null,nationality:form.nationality.value.trim()||null,age:get("age"),visit:get("visit"),affinity:get("affinity"),first_impression:[...many("firstImpression"),form.firstImpressionOther.value.trim()].filter(Boolean),attractions:[...many("attractions"),form.attractionsOther.value.trim()].filter(Boolean),likert:likertQuestions.map((_,i)=>Number(get("likert"+i))),sources:many("sources"),cities:[...many("cities"),form.citiesOther.value.trim()].filter(Boolean),intention:get("intention"),comments:form.comments.value.trim(),feedback:form.feedback.value.trim()};
-  const btn=form.querySelector('[type=submit]');btn.disabled=true;btn.textContent="Đang gửi...";
-  const {error}=await db.from("survey_responses").insert(data);
-  btn.disabled=false;btn.textContent="Gửi khảo sát →";
-  if(error){msg.textContent="Không thể gửi phản hồi: "+error.message;return;}
-  form.reset();msg.textContent="Cảm ơn bạn! Câu trả lời đã được ghi nhận.";
+  const limited=[['firstImpression',3],['attractions',3],['cities',2]];
+  if(limited.some(([n,max])=>many(n).length>max)){msg.textContent='Vui lòng kiểm tra giới hạn số lựa chọn.';return;}
+  if(!db){msg.textContent='Chưa kết nối cơ sở dữ liệu. Vui lòng cấu hình Supabase theo hướng dẫn trong README.md.';return;}
+  const data={identity:get('identity'),respondent_name:form.name.value.trim()||null,nationality:form.nationality.value.trim()||null,age:get('age'),visit:get('visit'),affinity:get('affinity'),first_impression:[...many('firstImpression'),form.firstImpressionOther.value.trim()].filter(Boolean),attractions:[...many('attractions'),form.attractionsOther.value.trim()].filter(Boolean),likert:likertQuestions.map((_,i)=>Number(get('likert'+i))),sources:many('sources'),cities:[...many('cities'),form.citiesOther.value.trim()].filter(Boolean),intention:get('intention'),comments:form.comments.value.trim(),feedback:form.feedback.value.trim()};
+  const btn=form.querySelector('[type=submit]');btn.disabled=true;btn.textContent='Đang gửi...';
+  const {error}=await db.from('survey_responses').insert(data);
+  btn.disabled=false;btn.textContent='Gửi khảo sát →';
+  if(error){msg.textContent='Không thể gửi phản hồi: '+error.message;return;}
+  form.reset();msg.textContent='Cảm ơn bạn! Câu trả lời đã được ghi nhận.';
  });
+ updateProgress();
 }
 function initAdmin(){
  const login=document.getElementById("loginForm");if(!login)return;
