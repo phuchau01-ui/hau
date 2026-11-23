@@ -27,3 +27,5 @@ drop policy if exists "Only admin can read survey" on public.survey_responses;
 create policy "Only admin can read survey" on public.survey_responses
 for select to authenticated
 using ((auth.jwt() ->> 'email') = 'admin@example.com');
+-- IMPORTANT: replace admin@example.com with the exact admin login email before running this policy.
+-- Do not create a broad authenticated SELECT policy: it would expose every response to every signed-in user.
